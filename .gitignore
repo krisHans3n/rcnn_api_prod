@@ -1,0 +1,19 @@
+# Jupyter Notebook
+.ipynb_checkpoints
+.ipynb
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+isoEnv/
+
+# Machine learning weights
+data/
