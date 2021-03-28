@@ -16,4 +16,5 @@ venv.bak/
 isoEnv/
 
 # Machine learning weights
-data/
+### data/
+data/NIST_weights/
