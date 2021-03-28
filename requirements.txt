@@ -15,11 +15,11 @@ contextlib2==0.6.0
 cycler==0.10.0
 Cython==0.29.13
 decorator==4.4.2
-distlib==0.3.0
+distlib==0.3.1
 distro==1.4.0
-gunicorn
 Django==3.1.6
 easydict==1.9
+filelock==3.0.12
 Flask==1.1.2
 flatbuffers==1.12
 gast==0.3.3
@@ -33,6 +33,7 @@ idna==2.8
 image==1.5.33
 imageio==2.9.0
 importlib-metadata==3.4.0
+importlib-resources==5.1.2
 ipaddr==2.2.0
 itsdangerous==1.1.0
 Jinja2==2.11.3
@@ -54,6 +55,7 @@ pandas==1.1.5
 pathspec==0.8.1
 pep517==0.8.2
 Pillow==6.1.0
+pipenv==2020.11.15
 progress==1.5
 protobuf==3.14.0
 pyasn1==0.4.8
@@ -89,6 +91,8 @@ typed-ast==1.4.2
 typing-extensions==3.7.4.3
 urllib3==1.25.8
 validators==0.18.2
+virtualenv==20.4.3
+virtualenv-clone==0.5.4
 webencodings==0.5.1
 Werkzeug==1.0.1
 wrapt==1.12.1
