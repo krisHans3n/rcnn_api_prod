@@ -59,6 +59,8 @@ class ImageParser:
                 api_resp = None
                 if id_:
                     api_resp = get_redis_json_cache(id_)
+                    if api_resp is False:
+                        continue
                 else:
                     api_resp = self.parent_dict  # None type refers to parent dict
                 if f in api_resp.keys():

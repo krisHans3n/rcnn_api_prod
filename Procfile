@@ -1,2 +1,2 @@
+worker: python3 -u worker.py
 web: gunicorn APIMain:app --workers 1
-worker: python3 worker.py

@@ -37,7 +37,7 @@ class ProdConfig(Config):
 
     FLASK_ENV = 'production'
     DEBUG = False
-    SERVER_NAME = 'ImageSpotLightAPI'
+    #SERVER_NAME = 'ImageSpotLightAPI'
 
 
 class DevConfig(Config):
