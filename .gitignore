@@ -18,3 +18,5 @@ isoEnv/
 # Machine learning weights
 ### data/
 data/NIST_weights/
+
+/Pipfile
