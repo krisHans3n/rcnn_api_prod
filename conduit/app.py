@@ -114,6 +114,7 @@ def create_app(config_object=DevConfig):
             result_response["Error"] = "no urls were provided"
         elif urls is not None:
             # handle_dispatch # return job
+            # TODO: wrap into a dispatch worker builder (for the API Gateway)
             job = q.enqueue_call(
                 func=send_to_passive_analysis,
                 args=(request.get_json(), redis_ids[1]),

@@ -2,7 +2,6 @@
 # The demo of Constrained R-CNN.
 <font size=3>Demo script showing detections in sample images and whole testing set.<br> 
 See README.md for installation instructions before running.<br> 
-For more details, please see our [paper](https://arxiv.org/abs/1911.08217).<br> </font>
 
 """
 
