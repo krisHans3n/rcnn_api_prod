@@ -115,12 +115,14 @@ def create_app(config_object=DevConfig):
         elif urls is not None:
             # handle_dispatch # return job
             # TODO: wrap into a dispatch worker builder (for the API Gateway)
-            job = q.enqueue_call(
-                func=send_to_passive_analysis,
-                args=(request.get_json(), redis_ids[1]),
-                result_ttl=1800,
-                job_id=redis_ids[1]
-            )
+            #   Create a fail safe worker dispatch
+            # job = q.enqueue_call(
+            #     func=send_to_passive_analysis,
+            #     args=(request.get_json(), redis_ids[1]),
+            #     result_ttl=1800,
+            #     job_id=redis_ids[1]
+            # )
+            
             # handle_images(urls) # return _report
             pi = ProcessImages()
             vl = VectorLoader()
@@ -129,14 +131,15 @@ def create_app(config_object=DevConfig):
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # job_status()  #  return true
-        result = q.fetch_job(job.id)
-        if result is None:
-            print("Job Incomplete")
-        elif result.is_failed:
-            print('something went wrong', result.is_failed)
-        else:
-            print(job.id)
-            print('job successful')
+        if job is not None:
+            result = q.fetch_job(job.id)
+            if result is None:
+                print("Job Incomplete")
+            elif result.is_failed:
+                print('something went wrong', result.is_failed)
+            else:
+                print(job.id)
+                print('job successful')
 
         img_p = ImageParser(redis_ids=redis_ids, parent_dict=_report)
         result_response = img_p.merge_api_responses()
