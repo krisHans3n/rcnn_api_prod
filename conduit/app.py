@@ -122,7 +122,7 @@ def create_app(config_object=DevConfig):
             #     result_ttl=1800,
             #     job_id=redis_ids[1]
             # )
-            
+
             # handle_images(urls) # return _report
             pi = ProcessImages()
             vl = VectorLoader()
