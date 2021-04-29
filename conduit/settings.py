@@ -19,7 +19,7 @@ def redis_listen():
 
 def runtime_settings():
     # if in development
-    return True, 5000, True
+    return True, port = int(os.environ.get('PORT', 5000)), True
 
 
 class Config(object):
