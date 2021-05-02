@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  server:
+    build: ./
+    image: master-image
+    ports:
+      - 5000:5000
+    command: gunicorn --workers 1 --bind 0.0.0.0:5000 --timeout 120 APIMain:app
+    stdin_open: true
+    tty: true
+
+  worker:
+    image: master-image
+    depends_on:
+      - redis
+    command: rq worker --name worker --url redis://redis:6379/0
+
+# uncomment to have a another worker
+#  worker2:
+#    image: master-image
+#    depends_on:
+#      - redis
+#    command: rqworker --name worker2 --url redis://redis:6379/0
+
+  redis:
+    image: redis

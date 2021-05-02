@@ -32,7 +32,7 @@ import numpy as np
 import os, cv2
 import argparse
 
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # matplotlib.use('Agg')
