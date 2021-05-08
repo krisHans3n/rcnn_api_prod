@@ -33,6 +33,7 @@ RUN apt-get install -y python3-tk
 
 RUN chown -R app:app /app
 
+EXPOSE 80
 USER app
 
 # ENV APP_HOME /APIMain
