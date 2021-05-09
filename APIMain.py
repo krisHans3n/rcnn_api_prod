@@ -1,5 +1,5 @@
-from conduit.app import create_app
-from conduit.settings import ProdConfig, DevConfig, runtime_settings
+from conduit import create_app
+from conduit.settings import DevConfig, runtime_settings
 
 PORT, DEBUG = runtime_settings()
 app = create_app(DevConfig)

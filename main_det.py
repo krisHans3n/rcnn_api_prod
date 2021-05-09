@@ -348,12 +348,14 @@ def commence(urls):
             mask_ = 1
             for _img in [new_mas, result]:
                 data = None
+                '''Determine type of image to transform'''
                 if mask_ == 1:
                     data = Image.fromarray(
                         cv2.cvtColor(np.array((_img + 0.1) * (1 / 0.3) * 255, np.uint8), cv2.COLOR_GRAY2RGB))
                 else:
                     data = Image.fromarray(np.array(_img, np.uint8))
 
+                '''Bind the formatted results for client response'''
                 _JSON[imagename].append(_vLoader.b64_from_image_obj('mask_' + str(mask_), data))
 
                 mask_ += 1
@@ -363,17 +365,7 @@ def commence(urls):
     return _JSON
 
 
-class ProcessImages:
-    def __init__(self):
-        pass
 
-    def start_processing(self, urls):
-        # files_ready = process_url(urls)
-        _comp = commence(urls)
-        # TODO: Convert file read/writes to raw request feed and base64 string appending
-        # TODO: Save image compressed as base64 string in redis
-        # TODO: find better compression for file encodes
-        # TODO: map urls to guid take only filename
-        #       convert filename list to dictionary of filename and guid
 
-        return _comp
+
+
