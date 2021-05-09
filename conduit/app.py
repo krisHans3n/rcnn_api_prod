@@ -4,15 +4,12 @@ import logging
 import json
 import uuid
 
-import lib.urlValidator as valid
 from conduit.settings import ProdConfig, DevConfig, create_redis_connection
-from lib.vectorformatter import VectorLoader
 from flask import Flask, request, jsonify, session
+import lib.urlValidator as valid
 from functools import wraps
 from main_det import ProcessImages
-from Dispatch import *
 from lib.utils.ImageParser import ImageParser
-from rq import Queue
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -55,95 +52,24 @@ def create_app(config_object=DevConfig):
     app.url_map.strict_slashes = False
     app.config.from_object(config_object)
 
-    # redis_status() # check redis is running
-    # run_worker()   # ensure worker is running before queueing
-    # start_queueing()
-
-    q = None
-
-    try:
-        q = Queue(connection=create_redis_connection())
-    except Exception as ex:
-        print('problem establishing queue ', ex)
-
     @app.route('/ml_img_det_intrfc/', methods=['POST', 'GET'])
     @required_params({"urls": list})
     def respond():
-        """
-        start environment with --> source isoEnv/bin/activate
-        start redis (in new terminal): redis-server
-        run file (in new terminal): worker.py
-
-        curl -v -H "Content-Type: application/json" -X POST -d '{"urls": ["https://www.w3schools.com/howto/img_mountains.jpg", "https://www.oxforduniversityimages.com/images/rotate/Image_Spring_17_4.gif"]}' http://127.0.0.1:5000/ml_img_det_intrfc/
-        """
-        # TODO: refactor so all image/url/response conducting code is inside ImageParser class (pass q, job, guid etc variables to it)
-        # TODO: add delete function to redis
-        # TODO: add startup file for running redis and worker at runtime
-        # TODO: complete configs so they are ready for production and switching to dev
-        # TODO: test api with different images
-        # TODO: tidy/organise code
-        # TODO: move to chrome extension for processing
-        # TODO: Add another call to GAN/ Face validity api
-        # TODO: add more passive analysis on passive api
-        # TODO: switch out current cnn for one that handles compressed images better
-
-        # ImageParser sequence
-        # -> instantiate image parser
-        # -> determine guids
-        # -> instantiate dispatch
-        # --> pass q to dispatch
-        # --> pass URLs to dispatch
-        # --> return job
-        # -> pass guids to imageparser
-        # -> pass q to image parser
-        # -> pass job to image parser (in case it's needed)
-        # =====> port all necessary functions to image parser
-        # --> return result merged dict
-        # IMPORTANT: imageparser needs function to wait for job complete
 
         urls = request.get_json()
         urls = valid.validate_url_string(urls["urls"])
 
-        redis_ids = [None, str(uuid.uuid4())]  # IDs for where to find JSON responses
-        _report = {}
-        result_response = {}
-
-        job = None
+        '''IDs for where to find JSON responses'''
+        redis_ids = [None, str(uuid.uuid4())]
 
         if urls is None or len(urls) == 0:
-            result_response["Error"] = "no urls were provided"
+            return jsonify("no urls were provided")
         elif urls is not None:
-            # handle_dispatch # return job
-            # TODO: wrap into a dispatch worker builder (for the API Gateway)
-            #   Create a fail safe worker dispatch
-            # job = q.enqueue_call(
-            #     func=send_to_passive_analysis,
-            #     args=(request.get_json(), redis_ids[1]),
-            #     result_ttl=1800,
-            #     job_id=redis_ids[1]
-            # )
-
-            # handle_images(urls) # return _report
             pi = ProcessImages()
-            vl = VectorLoader()
-            _nu_fls = pi.start_processing(urls)
-            _report = vl.appendB64toJSON(_nu_fls)
+            cumulative = pi.start_processing(urls)
+            # img_p = ImageParser(redis_ids=redis_ids, parent_dict=cumulative)
+            # result_response = img_p.merge_api_responses()
 
-        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        # job_status()  #  return true
-        if job is not None:
-            result = q.fetch_job(job.id)
-            if result is None:
-                print("Job Incomplete")
-            elif result.is_failed:
-                print('something went wrong', result.is_failed)
-            else:
-                print(job.id)
-                print('job successful')
-
-        img_p = ImageParser(redis_ids=redis_ids, parent_dict=_report)
-        result_response = img_p.merge_api_responses()
-
-        return jsonify(result_response)
+            return jsonify(cumulative)
 
     return app

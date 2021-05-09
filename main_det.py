@@ -11,11 +11,13 @@ from __future__ import print_function
 
 import io
 import sys
+import uuid
 
 import PIL
 import requests
-import numpy
+from urllib.request import Request, urlopen
 
+from lib.ImgFormatter import VectorLoader
 import _init_paths
 from model.config import cfg
 from model.test import im_detect
@@ -42,7 +44,7 @@ cfg.USE_MASK = True  # Out put mask
 cfg.TEST.MASK_BATCH = 8  # Stage-2 batchsize
 data_dir = './test_image/probe/'  # test images directory
 dl_dir = './dataset/NIST2016/probe/'
-dataset = 'NIST'  # dataset 'NIST, COVER, Columbia, CASIA'
+dataset = 'NIST'
 
 
 def cal_precision_recall_mae(prediction, gt):
@@ -76,11 +78,11 @@ def fig2data(fig):
 
     # Get the RGBA buffer from the figure
     w, h = fig.canvas.get_width_height()
-    buf = np.frombuffer(fig.canvas.tostring_argb(), dtype=numpy.uint8)
+    buf = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8)
     buf.shape = (h, w, 4)
 
     # canvas.tostring_argb give pixmap in ARGB mode. Roll the ALPHA channel to have it in RGBA mode
-    buf = numpy.roll(buf, 3, axis=2)
+    buf = np.roll(buf, 3, axis=2)
     return buf
 
 
@@ -112,47 +114,6 @@ def draw_result(mask_boxes, mask_scores, maskcls_inds, img_add):
     plt.close(fig)
     im_result = fig2data(fig)
     return im_result, str(classes[int(maskcls_inds[i])])
-
-
-#
-# def draw_figure(all_image, f1, auc, class_name, dataset_name):
-#     fig = plt.figure(figsize=(15, 7), edgecolor='black', linewidth=2)
-#     plt.style.use('ggplot')
-#     fig_title = dataset_name + ': ' + class_name + ' detection example'
-#     fig.suptitle(fig_title, fontsize=25, x=0.53, y=1.05, fontstyle='normal',
-#                  fontweight='medium', verticalalignment='bottom')
-#     ax = fig.add_subplot(231)
-#     ax.set_title('Tampered image', fontsize=15, fontstyle='normal',
-#                  fontweight='medium', verticalalignment='bottom')
-#     ax.imshow(all_image['image_temper'])
-#     plt.axis('off')
-#     ax = fig.add_subplot(232)
-#     ax.set_title('Groundtruth', fontsize=15, fontstyle='normal',
-#                  fontweight='medium', verticalalignment='bottom')
-#     ax.imshow(all_image['groundtruth'], cmap='gray')
-#     plt.axis('off')
-#     ax = fig.add_subplot(233)
-#     ax.set_title('Constrained Conv', fontsize=15, fontstyle='normal',
-#                  fontweight='medium', verticalalignment='bottom')
-#     ax.imshow(all_image['conv'])
-#     plt.axis('off')
-#     ax = fig.add_subplot(234)
-#     ax.set_title('Heatmap', fontsize=15, fontstyle='normal',
-#                  fontweight='medium', verticalalignment='bottom')
-#     ax.imshow(all_image['heatmap'])
-#     plt.axis('off')
-#     ax = fig.add_subplot(235)
-#     ax.set_title('Mask prediction', fontsize=15, fontstyle='normal',
-#                  fontweight='medium', verticalalignment='bottom')
-#     ax.imshow(all_image['mask_pre'])
-#     plt.axis('off')
-#     ax = fig.add_subplot(236)
-#     ax.set_title('Final result', fontsize=15, fontstyle='normal',
-#                  fontweight='medium', verticalalignment='bottom')
-#     ax.imshow(all_image['result'])
-#     plt.axis('off')
-#     fig.tight_layout()
-#     plt.show()
 
 
 def demo_single(sess, net, image_name, classes, dataset_name):
@@ -235,21 +196,11 @@ def demo_single(sess, net, image_name, classes, dataset_name):
     return f1, auc_score
 
 
-def demo_all(sess, net, image_path, mask_path, classes, dataset_name):
-    print(image_path)
-    try:
-        im_file = os.path.join(image_path)
-    except Exception as e:  # pylint: disable=broad-except
-        print(str(e))
-    mask_out = None
-    imfil = im_file
-    #     authentic_path=str(im_fil).replace('probe','authentic')
-    im = cv2.imread(imfil)
-    save_id = str(str(imfil.split('/')[-1]).split('.')[0])
-
+def demo_all(sess, net, im, classes, dataset_name):
     # Detect all object classes and regress object bounds
     _t = {'im_detect': Timer(), 'out_mask': Timer()}
     _t['im_detect'].tic()
+    mask_out = None
 
     scores, boxes, feat, s, maskcls_inds, mask_boxes, mask_scores, mask_pred, mask_data, layers = im_detect(sess, net,
                                                                                                             im)
@@ -288,41 +239,57 @@ def demo_all(sess, net, image_path, mask_path, classes, dataset_name):
     return mask_out, result, class_name
 
 
-# download url image to probe directory
+def yield_url_numpy(url):
+    resp = urlopen(url)
+    img = np.asarray(bytearray(resp.read()), dtype="uint8")
+    img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
+    if img is not None:
+        return img
+    else:
+        ''' Try and save it to disk then read with cv2 (delete when done)'''
+        filename = url.split('/')[-1]
+        extension = os.path.splitext(filename)
+        r = requests.get(url)
+        tmp_name = str(uuid.uuid4())
+
+        if r.status_code == 200:
+            img_bytes = io.BytesIO(r.content)
+            img = PIL.Image.open(img_bytes)
+
+            if extension[-1] == '' or extension[-1] is None:
+                filename = tmp_name + "." + img.format.lower()
+            if not filename.endswith(".png"):
+                filename = tmp_name + '.png'
+
+            filepath = os.path.join(dl_dir, filename)
+            img.save(filepath)
+            cv2_img = cv2.imread(filepath)
+            os.remove(filepath)
+            return cv2_img
+
+
+'''Below function will be deleted after testing'''
+
+
 def process_url(urls):
-    # clean up target directory
-    # clean_directory()
-    IMG_PRC_RES_ALL = {}
-    TEST_IMG_URLS = urls
     files_added = {}
 
-    # iterate through list of urls
     for url in urls:
         filename = url.split('/')[-1]
         extension = os.path.splitext(filename)
         r = requests.get(url)
 
-        if True:  # r.status_code == 200:
+        if r.status_code == 200:
             img_bytes = io.BytesIO(r.content)
             img = PIL.Image.open(img_bytes)
-            # nparr = np.frombuffer(r.content, np.uint8)
-            # img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
             if extension[-1] == '' or extension[-1] is None:
                 filename = filename + "." + img.format.lower()
-
             if not filename.endswith(".png"):
                 filename = os.path.splitext(filename)[0] + '.png'
-                # b, g, r = img.split()
-                # img = Image.merge("RGB", (r, g, b))
-                # img = img.convert('BGR')
-                # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
             filepath = os.path.join(dl_dir, filename)
-
             img.save(filepath)
-            # cv2.imwrite(filepath, img)
-
             files_added[os.path.splitext(filename)[0]] = []
 
             print('Image successfully Downloaded: ', filepath)
@@ -340,29 +307,8 @@ tfconfig.gpu_options.allow_growth = True
 if dataset == 'NIST':
     tfmodel = os.path.join('./data/NIST_weights/res101_mask_iter_60000.ckpt')
     classes = ('authentic', 'splice', 'removal', 'copy-move')
-    im_names = ['NC2016_7894.png',
-                'NC2016_6704.png',
-                'NC2016_7065.png']
     dataset_path = './dataset/NIST2016/'
-    list_name = 'NIST_test_new_2.txt'
-# elif dataset == 'COVER':
-#     tfmodel = os.path.join('./data/COVER_weights/res101_mask_iter_4000.ckpt')
-#     classes = ('authentic', 'tampered')
-#     im_names = ['COVER_9.png']
-#     dataset_path = './dataset/cover/'
-#     list_name = 'cover_test_single.txt'
-# elif dataset == 'CASIA':
-#     tfmodel = os.path.join('./data/CASIA_weights/res101_mask_iter_110000.ckpt')
-#     classes = ('authentic', 'tampered')
-#     im_names = ['CASIA_ani0036_ani0066_A.png']
-#     dataset_path = './dataset/CASIA/'
-#     list_name = 'test_all_single.txt'
-# elif dataset == 'Columbia':
-#     tfmodel = os.path.join('./data/CASIA_weights/res101_mask_iter_110000.ckpt')
-#     classes = ('authentic', 'tampered')
-#     im_names = ['Columbia.png']
-#     dataset_path = './dataset/Columbia/'
-#     list_name = 'test_all_single.txt'
+
 else:
     raise NotImplementedError
 if not os.path.isfile(tfmodel + '.meta'):
@@ -379,93 +325,42 @@ saver = tf.train.Saver()
 saver.restore(sess, tfmodel)
 
 
-def commence():
+def commence(urls):
     directory = os.listdir(dataset_path + '/probe/')
-    print('data set path', dataset_path)
-    print('list name:', list_name)
-    im_ind = 1
-    aucs = []
+    index = 0
+    _JSON = {}
+    _vLoader = VectorLoader()
 
-    # Switch to find specific files in directory
-    for file in directory:
-        print('current Image is :', file)
-        file = str(file).split(' ')[0]
-        print(file)
+    for url in urls:
+        print('current Image is :', url)
+        img_bytes = yield_url_numpy(url)
 
-        # TODO: Change directory read to url request read
-        # TODO: While reading request do the 'process url' job of gathering list
-        #       of usable images - return list along with result
+        '''Check size and image count'''
+        if _vLoader.track_usage() != 1:
+            break
 
-        image_path = dataset_path + 'probe/' + file
-        if dataset == 'COVER':
-            mask_name = str(file).split('_')[1] + 'forged.tif'
-        else:
-            mask_name = file
-        mask_path = dataset_path + 'mask/' + mask_name
-        # TODO: In demo all save image to redis image key
-        new_mas, result, class_name = demo_all(sess, net, image_path, mask_path, classes, dataset)
+        if img_bytes is not None:
+            '''Feed in image'''
+            new_mas, result, class_name = demo_all(sess, net, img_bytes, classes, dataset)
+            imagename = url.split('/')[-1]
+            _JSON[imagename] = []
 
-        _dir = 1
-        for _img in [new_mas, result]:
-            data = None
-            if _dir == 1:  # (arr + 0.1) * (1/0.3)
-                #  data = Image.fromarray(cv2.cvtColor(np.array(_img * 255, np.uint8), cv2.COLOR_GRAY2RGB))
-                data = Image.fromarray(
-                    cv2.cvtColor(np.array((_img + 0.1) * (1 / 0.3) * 255, np.uint8), cv2.COLOR_GRAY2RGB))
-            else:
-                data = Image.fromarray(np.array(_img, np.uint8))
-                # TODO: Test this to make sure compression is ok
-                # TODO: Move save function outside and use inside demo_all function for masks
-            data.save(dataset_path + 'mask_' + str(_dir) + '/' + mask_name,
-                      optimize=True,
-                      quality=50)
-            _dir += 1
+            mask_ = 1
+            for _img in [new_mas, result]:
+                data = None
+                if mask_ == 1:
+                    data = Image.fromarray(
+                        cv2.cvtColor(np.array((_img + 0.1) * (1 / 0.3) * 255, np.uint8), cv2.COLOR_GRAY2RGB))
+                else:
+                    data = Image.fromarray(np.array(_img, np.uint8))
 
-        im_ind += 1
+                _JSON[imagename].append(_vLoader.b64_from_image_obj('mask_' + str(mask_), data))
 
-    return True
+                mask_ += 1
 
+        index += 1
 
-"""
-###### FOR TESTS
-
-print('data set path', dataset_path)
-print('list name:', list_name)
-im_ind = 1
-im_num = len(im_names)
-f1_scores = []
-aucs = []
-for file in os.listdir(dataset_path + '/probe/'):
-    print('current File is :', file)
-    file = str(file).split(' ')[0]
-    print(file)
-
-    image_path = dataset_path + 'probe/' + file
-    if dataset == 'COVER':
-        mask_name = str(file).split('_')[1] + 'forged.tif'
-    else:
-        mask_name = file
-    mask_path = dataset_path + 'mask/' + mask_name
-    new_mas, result, class_name = demo_all(sess, net, image_path, mask_path, classes, dataset)
-
-    _dir = 1
-    for _img in [new_mas, result]:
-        data = None
-        if _dir == 1:
-            data = Image.fromarray(cv2.cvtColor(np.array(_img * 255, np.uint8), cv2.COLOR_GRAY2RGB))
-        else:
-            data = Image.fromarray(np.array(_img, np.uint8))
-        data.save(dataset_path + 'mask_' + str(_dir) + '/' + mask_name)
-        _dir += 1
-
-    im_ind += 1
-
-#####################
-####################
-###################
-##################
-#################
-"""
+    return _JSON
 
 
 class ProcessImages:
@@ -473,12 +368,12 @@ class ProcessImages:
         pass
 
     def start_processing(self, urls):
-        files_ready = process_url(urls)
-        _comp = commence()
+        # files_ready = process_url(urls)
+        _comp = commence(urls)
         # TODO: Convert file read/writes to raw request feed and base64 string appending
         # TODO: Save image compressed as base64 string in redis
         # TODO: find better compression for file encodes
         # TODO: map urls to guid take only filename
         #       convert filename list to dictionary of filename and guid
 
-        return files_ready
+        return _comp
