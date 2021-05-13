@@ -8,6 +8,11 @@ from conduit.api.security.session_domain import required_ip
 
 logging.basicConfig(level=logging.DEBUG)
 
+"""
+Main entry point 
+Should only take parameters from list ip
+"""
+
 
 @bp.route('/ml_img_det_intrfc/', methods=['POST', 'GET'])
 @required_params({"urls": list})
